@@ -10,10 +10,113 @@ namespace MRubySample
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== MRubyCS + Raylib-cs モック ===");
+            Console.WriteLine("=== MRubyCS + Raylib-cs Engine ===");
 
             using var mrb = MRubyState.Create();
             var compiler = MRubyCompiler.Create(mrb);
+
+            // Raylibモジュールを定義
+            var raylibMod = mrb.DefineModule(mrb.Intern("Raylib"u8), opt => {});
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("init_window"u8), (state, self) => {
+                int w = (int)state.GetArgumentAsIntegerAt(0);
+                int h = (int)state.GetArgumentAsIntegerAt(1);
+                string title = state.GetArgumentAsStringAt(2).ToString();
+                Raylib.InitWindow(w, h, title);
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("set_target_fps"u8), (state, self) => {
+                int fps = (int)state.GetArgumentAsIntegerAt(0);
+                Raylib.SetTargetFPS(fps);
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("window_should_close"u8), (state, self) => {
+                return Raylib.WindowShouldClose() ? MRubyValue.True : MRubyValue.False;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("close_window"u8), (state, self) => {
+                Raylib.CloseWindow();
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("begin_drawing"u8), (state, self) => {
+                Raylib.BeginDrawing();
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("end_drawing"u8), (state, self) => {
+                Raylib.EndDrawing();
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("is_key_down"u8), (state, self) => {
+                int key = (int)state.GetArgumentAsIntegerAt(0);
+                return Raylib.IsKeyDown((KeyboardKey)key) ? MRubyValue.True : MRubyValue.False;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("clear_background_raw"u8), (state, self) => {
+                byte r = (byte)state.GetArgumentAsIntegerAt(0);
+                byte g = (byte)state.GetArgumentAsIntegerAt(1);
+                byte b = (byte)state.GetArgumentAsIntegerAt(2);
+                byte a = (byte)state.GetArgumentAsIntegerAt(3);
+                Raylib.ClearBackground(new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_rectangle_raw"u8), (state, self) => {
+                int x = (int)state.GetArgumentAsIntegerAt(0);
+                int y = (int)state.GetArgumentAsIntegerAt(1);
+                int w = (int)state.GetArgumentAsIntegerAt(2);
+                int h = (int)state.GetArgumentAsIntegerAt(3);
+                byte r = (byte)state.GetArgumentAsIntegerAt(4);
+                byte g = (byte)state.GetArgumentAsIntegerAt(5);
+                byte b = (byte)state.GetArgumentAsIntegerAt(6);
+                byte a = (byte)state.GetArgumentAsIntegerAt(7);
+                Raylib.DrawRectangle(x, y, w, h, new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_text_raw"u8), (state, self) => {
+                string text = state.GetArgumentAsStringAt(0).ToString();
+                int x = (int)state.GetArgumentAsIntegerAt(1);
+                int y = (int)state.GetArgumentAsIntegerAt(2);
+                int size = (int)state.GetArgumentAsIntegerAt(3);
+                byte r = (byte)state.GetArgumentAsIntegerAt(4);
+                byte g = (byte)state.GetArgumentAsIntegerAt(5);
+                byte b = (byte)state.GetArgumentAsIntegerAt(6);
+                byte a = (byte)state.GetArgumentAsIntegerAt(7);
+                Raylib.DrawText(text, x, y, size, new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
+            // ruby側でユーティリティメソッドを定義
+            string rbHelpers = @"
+module Raylib
+  KEY_RIGHT = 262
+  KEY_LEFT = 263
+  KEY_DOWN = 264
+  KEY_UP = 265
+  
+  RAYWHITE = [245, 245, 245, 255]
+  BLUE = [0, 121, 241, 255]
+  DARKGRAY = [80, 80, 80, 255]
+
+  def self.clear_background(color)
+    clear_background_raw(color[0], color[1], color[2], color[3])
+  end
+
+  def self.draw_rectangle(x, y, w, h, color)
+    draw_rectangle_raw(x, y, w, h, color[0], color[1], color[2], color[3])
+  end
+
+  def self.draw_text(text, x, y, size, color)
+    draw_text_raw(text, x, y, size, color[0], color[1], color[2], color[3])
+  end
+end
+";
+            compiler.LoadSourceCode(rbHelpers);
 
             string scriptPath = "script.rb";
             if (!File.Exists(scriptPath))
@@ -22,42 +125,15 @@ namespace MRubySample
                 return;
             }
 
-            // Rubyスクリプトの初期化
-            compiler.LoadSourceCode(File.ReadAllBytes(scriptPath));
-
-            // Raylibの初期化
-            Raylib.InitWindow(800, 600, "MRubyCS + Raylib-cs Engine");
-            Raylib.SetTargetFPS(60);
-
-            while (!Raylib.WindowShouldClose())
+            try 
             {
-                // 入力取得
-                bool up = Raylib.IsKeyDown(KeyboardKey.Up);
-                bool down = Raylib.IsKeyDown(KeyboardKey.Down);
-                bool left = Raylib.IsKeyDown(KeyboardKey.Left);
-                bool right = Raylib.IsKeyDown(KeyboardKey.Right);
-
-                // Ruby側を更新
-                // 簡単のために文字列として式を生成して評価します
-                string rbCode = $"update_player({up.ToString().ToLower()}, {down.ToString().ToLower()}, {left.ToString().ToLower()}, {right.ToString().ToLower()})";
-                compiler.LoadSourceCode(rbCode);
-
-                // Ruby側から座標を取得
-                float px = (float)mrb.AsFloat(compiler.LoadSourceCode("get_player_x"u8));
-                float py = (float)mrb.AsFloat(compiler.LoadSourceCode("get_player_y"u8));
-
-                // 描画
-                Raylib.BeginDrawing();
-                Raylib.ClearBackground(Color.RayWhite);
-
-                // Ruby側で計算された座標(px, py)を使って四角形を描画
-                Raylib.DrawRectangle((int)px, (int)py, 50, 50, Color.Blue);
-                Raylib.DrawText("Move with Arrow Keys. Logic is in Ruby!", 10, 10, 20, Color.DarkGray);
-
-                Raylib.EndDrawing();
+                // script.rb を読み込んで実行（内部でループが回る想定）
+                compiler.LoadSourceCode(File.ReadAllBytes(scriptPath));
             }
-
-            Raylib.CloseWindow();
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ruby Script Error: {ex.Message}");
+            }
         }
     }
 }

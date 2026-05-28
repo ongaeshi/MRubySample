@@ -1,4 +1,3 @@
-# script.rb
 class Player
   attr_reader :x, :y
 
@@ -8,25 +7,33 @@ class Player
     @speed = 5.0
   end
 
-  def update(up, down, left, right)
-    @y -= @speed if up
-    @y += @speed if down
-    @x -= @speed if left
-    @x += @speed if right
+  def update
+    @y -= @speed if Raylib.is_key_down(Raylib::KEY_UP)
+    @y += @speed if Raylib.is_key_down(Raylib::KEY_DOWN)
+    @x -= @speed if Raylib.is_key_down(Raylib::KEY_LEFT)
+    @x += @speed if Raylib.is_key_down(Raylib::KEY_RIGHT)
   end
 end
 
-$player = Player.new
+def main
+  Raylib.init_window(800, 600, "MRubyCS + Raylib-cs Engine")
+  Raylib.set_target_fps(60)
 
-# C#側から呼ばれる想定のラッパーメソッド
-def update_player(up, down, left, right)
-  $player.update(up, down, left, right)
+  player = Player.new
+
+  while !Raylib.window_should_close()
+    player.update
+
+    Raylib.begin_drawing()
+    Raylib.clear_background(Raylib::RAYWHITE)
+
+    Raylib.draw_rectangle(player.x.to_i, player.y.to_i, 50, 50, Raylib::BLUE)
+    Raylib.draw_text("Move with Arrow Keys. Main loop in Ruby!", 10, 10, 20, Raylib::DARKGRAY)
+
+    Raylib.end_drawing()
+  end
+
+  Raylib.close_window()
 end
 
-def get_player_x
-  $player.x
-end
-
-def get_player_y
-  $player.y
-end
+main()
