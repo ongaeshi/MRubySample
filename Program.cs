@@ -56,6 +56,11 @@ namespace MRubySample
                 return Raylib.IsKeyDown((KeyboardKey)key) ? MRubyValue.True : MRubyValue.False;
             });
 
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("is_key_pressed"u8), (state, self) => {
+                int key = (int)state.GetArgumentAsIntegerAt(0);
+                return Raylib.IsKeyPressed((KeyboardKey)key) ? MRubyValue.True : MRubyValue.False;
+            });
+
             mrb.DefineClassMethod(raylibMod, mrb.Intern("clear_background_raw"u8), (state, self) => {
                 byte r = (byte)state.GetArgumentAsIntegerAt(0);
                 byte g = (byte)state.GetArgumentAsIntegerAt(1);
@@ -75,6 +80,19 @@ namespace MRubySample
                 byte b = (byte)state.GetArgumentAsIntegerAt(6);
                 byte a = (byte)state.GetArgumentAsIntegerAt(7);
                 Raylib.DrawRectangle(x, y, w, h, new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_rectangle_lines_raw"u8), (state, self) => {
+                int x = (int)state.GetArgumentAsIntegerAt(0);
+                int y = (int)state.GetArgumentAsIntegerAt(1);
+                int w = (int)state.GetArgumentAsIntegerAt(2);
+                int h = (int)state.GetArgumentAsIntegerAt(3);
+                byte r = (byte)state.GetArgumentAsIntegerAt(4);
+                byte g = (byte)state.GetArgumentAsIntegerAt(5);
+                byte b = (byte)state.GetArgumentAsIntegerAt(6);
+                byte a = (byte)state.GetArgumentAsIntegerAt(7);
+                Raylib.DrawRectangleLines(x, y, w, h, new Color(r, g, b, a));
                 return MRubyValue.Nil;
             });
 
@@ -98,10 +116,22 @@ module Raylib
   KEY_LEFT = 263
   KEY_DOWN = 264
   KEY_UP = 265
+  KEY_SPACE = 32
+  KEY_Z = 90
+  KEY_X = 88
+  KEY_ENTER = 257
   
   RAYWHITE = [245, 245, 245, 255]
-  BLUE = [0, 121, 241, 255]
+  BLACK = [0, 0, 0, 255]
   DARKGRAY = [80, 80, 80, 255]
+  LIGHTGRAY = [200, 200, 200, 255]
+  RED = [230, 41, 55, 255]
+  GREEN = [0, 228, 48, 255]
+  BLUE = [0, 121, 241, 255]
+  ORANGE = [255, 161, 0, 255]
+  YELLOW = [253, 249, 0, 255]
+  PURPLE = [200, 122, 255, 255]
+  CYAN = [0, 255, 255, 255]
 
   def self.clear_background(color)
     clear_background_raw(color[0], color[1], color[2], color[3])
@@ -109,6 +139,10 @@ module Raylib
 
   def self.draw_rectangle(x, y, w, h, color)
     draw_rectangle_raw(x, y, w, h, color[0], color[1], color[2], color[3])
+  end
+
+  def self.draw_rectangle_lines(x, y, w, h, color)
+    draw_rectangle_lines_raw(x, y, w, h, color[0], color[1], color[2], color[3])
   end
 
   def self.draw_text(text, x, y, size, color)
