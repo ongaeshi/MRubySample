@@ -3,7 +3,7 @@ def aabb_intersect?(x1, y1, w1, h1, x2, y2, w2, h2)
 end
 
 class Player
-  attr_accessor :x, :y, :w, :h, :vy, :speed, :color, :can_jump
+  attr_accessor :x, :y, :w, :h, :vy, :speed, :color
 
   def initialize
     @w = 30
@@ -13,7 +13,8 @@ class Player
     @vy = 0.0
     @speed = 6.0
     @color = Raylib::BLUE
-    @can_jump = false
+    @coyote_timer = 0
+    @jump_buffer = 0
   end
 
   def update
@@ -25,10 +26,20 @@ class Player
       @x += @speed
     end
 
-    # ジャンプ
-    if (Raylib.is_key_pressed(Raylib::KEY_SPACE) || Raylib.is_key_pressed(Raylib::KEY_UP)) && @can_jump
+    # ジャンプ先行入力 (Jump Buffer: 着地数フレーム前に押してもジャンプが発動する)
+    if Raylib.is_key_pressed(Raylib::KEY_SPACE) || Raylib.is_key_pressed(Raylib::KEY_UP)
+      @jump_buffer = 8 # 8フレームの猶予
+    end
+
+    if @jump_buffer > 0
+      @jump_buffer -= 1
+    end
+
+    # ジャンプ実行 (コヨーテタイム: 足場から落ちた直後数フレームはジャンプ可能)
+    if @jump_buffer > 0 && @coyote_timer > 0
       @vy = -12.0
-      @can_jump = false
+      @coyote_timer = 0
+      @jump_buffer = 0
     end
 
     # 重力
@@ -39,8 +50,11 @@ class Player
     @x = 0 if @x < 0
     @x = 800 - @w if @x > 800 - @w
 
+    if @coyote_timer > 0
+      @coyote_timer -= 1
+    end
+
     # 床との当たり判定
-    @can_jump = false
     floor_y = 550
     if @y + @h >= floor_y && @vy > 0
       on_left_floor = (@x + @w > 0 && @x < 350)
@@ -49,7 +63,7 @@ class Player
       if on_left_floor || on_right_floor
         @y = floor_y - @h
         @vy = 0.0
-        @can_jump = true
+        @coyote_timer = 8 # 接地中は常にコヨーテタイムを最大値に保つ
       end
     end
   end
