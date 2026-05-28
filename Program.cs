@@ -3,6 +3,7 @@ using System.IO;
 using MRubyCS;
 using MRubyCS.Compiler;
 using Raylib_cs;
+using System.Numerics;
 
 namespace MRubySample
 {
@@ -109,6 +110,33 @@ namespace MRubySample
                 return MRubyValue.Nil;
             });
 
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_circle_raw"u8), (state, self) => {
+                int centerX = (int)state.GetArgumentAsIntegerAt(0);
+                int centerY = (int)state.GetArgumentAsIntegerAt(1);
+                float radius = (float)state.GetArgumentAsIntegerAt(2);
+                byte r = (byte)state.GetArgumentAsIntegerAt(3);
+                byte g = (byte)state.GetArgumentAsIntegerAt(4);
+                byte b = (byte)state.GetArgumentAsIntegerAt(5);
+                byte a = (byte)state.GetArgumentAsIntegerAt(6);
+                Raylib.DrawCircle(centerX, centerY, radius, new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_triangle_raw"u8), (state, self) => {
+                float v1x = (float)state.GetArgumentAsIntegerAt(0);
+                float v1y = (float)state.GetArgumentAsIntegerAt(1);
+                float v2x = (float)state.GetArgumentAsIntegerAt(2);
+                float v2y = (float)state.GetArgumentAsIntegerAt(3);
+                float v3x = (float)state.GetArgumentAsIntegerAt(4);
+                float v3y = (float)state.GetArgumentAsIntegerAt(5);
+                byte r = (byte)state.GetArgumentAsIntegerAt(6);
+                byte g = (byte)state.GetArgumentAsIntegerAt(7);
+                byte b = (byte)state.GetArgumentAsIntegerAt(8);
+                byte a = (byte)state.GetArgumentAsIntegerAt(9);
+                Raylib.DrawTriangle(new Vector2(v1x, v1y), new Vector2(v2x, v2y), new Vector2(v3x, v3y), new Color(r, g, b, a));
+                return MRubyValue.Nil;
+            });
+
             // ruby側でユーティリティメソッドを定義
             string rbHelpers = @"
 module Raylib
@@ -147,6 +175,14 @@ module Raylib
 
   def self.draw_text(text, x, y, size, color)
     draw_text_raw(text, x, y, size, color[0], color[1], color[2], color[3])
+  end
+
+  def self.draw_circle(center_x, center_y, radius, color)
+    draw_circle_raw(center_x, center_y, radius, color[0], color[1], color[2], color[3])
+  end
+
+  def self.draw_triangle(v1x, v1y, v2x, v2y, v3x, v3y, color)
+    draw_triangle_raw(v1x, v1y, v2x, v2y, v3x, v3y, color[0], color[1], color[2], color[3])
   end
 end
 ";
