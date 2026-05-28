@@ -152,10 +152,16 @@ end
 ";
             compiler.LoadSourceCode(rbHelpers);
 
-            string scriptPath = "script.rb";
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Usage: dotnet run <script.rb>");
+                return;
+            }
+
+            string scriptPath = args[0];
             if (!File.Exists(scriptPath))
             {
-                Console.WriteLine("script.rb が見つかりません。");
+                Console.WriteLine($"{scriptPath} が見つかりません。");
                 return;
             }
 
