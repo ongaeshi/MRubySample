@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="MRubyCS" Version="0.107.1" />
     <PackageReference Include="MRubyCS.Compiler" Version="0.107.1" />
+    <PackageReference Include="Raylib-cs" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
