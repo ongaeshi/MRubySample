@@ -235,6 +235,19 @@ namespace MRubySample
                 return new MRubyValue(0);
             });
 
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("load_file_text_raw"u8), (state, self) => {
+                string path = state.GetArgumentAsStringAt(0).ToString();
+                if (!File.Exists(path)) {
+                    Console.WriteLine($"File not found: {path}");
+                    return MRubyValue.Nil;
+                }
+                string content = File.ReadAllText(path);
+                return state.NewString(content);
+            });
+
+
+
+
             // ruby側でユーティリティメソッドを定義
             string rbHelpers = @"
 module Raylib
@@ -282,6 +295,10 @@ module Raylib
 
   def self.draw_triangle(v1x, v1y, v2x, v2y, v3x, v3y, color)
     draw_triangle_raw(v1x, v1y, v2x, v2y, v3x, v3y, color[0], color[1], color[2], color[3])
+  end
+
+  def self.load_file_text(path)
+    load_file_text_raw(path)
   end
 
   class Texture
