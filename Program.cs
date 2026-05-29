@@ -43,11 +43,12 @@ namespace MRubySample
                 string dir = Path.GetDirectoryName(fullPath);
                 if (string.IsNullOrEmpty(dir)) dir = ".";
                 watcher.Path = dir;
-                watcher.Filter = Path.GetFileName(fullPath);
+                watcher.Filter = "*.*";
+                watcher.IncludeSubdirectories = true;
                 watcher.NotifyFilter = NotifyFilters.LastWrite;
                 watcher.Changed += (s, e) => _reloadRequested = true;
                 watcher.EnableRaisingEvents = true;
-                Console.WriteLine($"Watching for changes in {scriptPath}...");
+                Console.WriteLine($"Watching for changes in {dir} and subdirectories...");
             }
 
             while (true)
