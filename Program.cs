@@ -9,23 +9,66 @@ namespace MRubySample
 {
     class Program
     {
+        static volatile bool _reloadRequested = false;
+
         static void Main(string[] args)
         {
             Console.WriteLine("=== MRubyCS + Raylib-cs Engine ===");
 
-            using var mrb = MRubyState.Create();
-            var compiler = MRubyCompiler.Create(mrb);
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Usage: dotnet run [--watch|-w] <script.rb>");
+                return;
+            }
 
-            // Raylibモジュールを定義
-            var raylibMod = mrb.DefineModule(mrb.Intern("Raylib"u8), opt => {});
+            bool watchMode = false;
+            string scriptPath = "";
 
-            mrb.DefineClassMethod(raylibMod, mrb.Intern("init_window"u8), (state, self) => {
-                int w = (int)state.GetArgumentAsIntegerAt(0);
-                int h = (int)state.GetArgumentAsIntegerAt(1);
-                string title = state.GetArgumentAsStringAt(2).ToString();
-                Raylib.InitWindow(w, h, title);
-                return MRubyValue.Nil;
-            });
+            foreach (var arg in args)
+            {
+                if (arg == "--watch" || arg == "-w") watchMode = true;
+                else scriptPath = arg;
+            }
+
+            if (string.IsNullOrEmpty(scriptPath) || !File.Exists(scriptPath))
+            {
+                Console.WriteLine($"{scriptPath} が見つかりません。");
+                return;
+            }
+
+            using FileSystemWatcher watcher = new FileSystemWatcher();
+            if (watchMode)
+            {
+                string fullPath = Path.GetFullPath(scriptPath);
+                string dir = Path.GetDirectoryName(fullPath);
+                if (string.IsNullOrEmpty(dir)) dir = ".";
+                watcher.Path = dir;
+                watcher.Filter = Path.GetFileName(fullPath);
+                watcher.NotifyFilter = NotifyFilters.LastWrite;
+                watcher.Changed += (s, e) => _reloadRequested = true;
+                watcher.EnableRaisingEvents = true;
+                Console.WriteLine($"Watching for changes in {scriptPath}...");
+            }
+
+            while (true)
+            {
+                _reloadRequested = false;
+
+                using var mrb = MRubyState.Create();
+                var compiler = MRubyCompiler.Create(mrb);
+
+                // Raylibモジュールを定義
+                var raylibMod = mrb.DefineModule(mrb.Intern("Raylib"u8), opt => {});
+
+                mrb.DefineClassMethod(raylibMod, mrb.Intern("init_window"u8), (state, self) => {
+                    if (!Raylib.IsWindowReady()) {
+                        int w = (int)state.GetArgumentAsIntegerAt(0);
+                        int h = (int)state.GetArgumentAsIntegerAt(1);
+                        string title = state.GetArgumentAsStringAt(2).ToString();
+                        Raylib.InitWindow(w, h, title);
+                    }
+                    return MRubyValue.Nil;
+                });
 
             mrb.DefineClassMethod(raylibMod, mrb.Intern("set_target_fps"u8), (state, self) => {
                 int fps = (int)state.GetArgumentAsIntegerAt(0);
@@ -34,11 +77,13 @@ namespace MRubySample
             });
 
             mrb.DefineClassMethod(raylibMod, mrb.Intern("window_should_close"u8), (state, self) => {
-                return Raylib.WindowShouldClose() ? MRubyValue.True : MRubyValue.False;
+                return (Raylib.WindowShouldClose() || _reloadRequested) ? MRubyValue.True : MRubyValue.False;
             });
 
             mrb.DefineClassMethod(raylibMod, mrb.Intern("close_window"u8), (state, self) => {
-                Raylib.CloseWindow();
+                if (!_reloadRequested) {
+                    Raylib.CloseWindow();
+                }
                 return MRubyValue.Nil;
             });
 
@@ -188,27 +233,24 @@ end
 ";
             compiler.LoadSourceCode(rbHelpers);
 
-            if (args.Length == 0)
-            {
-                Console.WriteLine("Usage: dotnet run <script.rb>");
-                return;
-            }
+                try 
+                {
+                    // script.rb を読み込んで実行（内部でループが回る想定）
+                    compiler.LoadSourceCode(File.ReadAllBytes(scriptPath));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ruby Script Error: {ex.Message}");
+                }
 
-            string scriptPath = args[0];
-            if (!File.Exists(scriptPath))
-            {
-                Console.WriteLine($"{scriptPath} が見つかりません。");
-                return;
-            }
+                if (!watchMode || !_reloadRequested)
+                {
+                    break;
+                }
 
-            try 
-            {
-                // script.rb を読み込んで実行（内部でループが回る想定）
-                compiler.LoadSourceCode(File.ReadAllBytes(scriptPath));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ruby Script Error: {ex.Message}");
+                // リロード時の連続読み込みを防ぐためのウェイト
+                System.Threading.Thread.Sleep(100);
+                Console.WriteLine("Reloading script...");
             }
         }
     }
