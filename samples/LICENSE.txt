@@ -1,0 +1,8 @@
+Mahjong Tiles Assets
+--------------------------------------------------
+The Mahjong tile images located in `mahjong_tex/tiles/` are sourced from:
+Repository: FluffyStuff/riichi-mahjong-tiles
+URL: https://github.com/FluffyStuff/riichi-mahjong-tiles
+License: CC0 1.0 Universal (Public Domain Dedication)
+
+These assets are free to use, modify, and distribute without restrictions.
