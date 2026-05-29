@@ -10,11 +10,11 @@ namespace MRubySample
     class Program
     {
         static volatile bool _reloadRequested = false;
+        static System.Collections.Generic.Dictionary<int, Texture2D> _textures = new System.Collections.Generic.Dictionary<int, Texture2D>();
+        static int _nextTextureId = 1;
 
         static void Main(string[] args)
         {
-            Console.WriteLine("=== MRubyCS + Raylib-cs Engine ===");
-
             if (args.Length == 0)
             {
                 Console.WriteLine("Usage: dotnet run [--watch|-w] <script.rb>");
@@ -53,6 +53,12 @@ namespace MRubySample
             while (true)
             {
                 _reloadRequested = false;
+                
+                foreach (var tex in _textures.Values) {
+                    Raylib.UnloadTexture(tex);
+                }
+                _textures.Clear();
+                _nextTextureId = 1;
 
                 using var mrb = MRubyState.Create();
                 var compiler = MRubyCompiler.Create(mrb);
@@ -182,6 +188,53 @@ namespace MRubySample
                 return MRubyValue.Nil;
             });
 
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("load_texture_raw"u8), (state, self) => {
+                string path = state.GetArgumentAsStringAt(0).ToString();
+                if (!File.Exists(path)) {
+                    Console.WriteLine($"Texture not found: {path}");
+                    return new MRubyValue(0);
+                }
+                var tex = Raylib.LoadTexture(path);
+                int id = _nextTextureId++;
+                _textures[id] = tex;
+                return new MRubyValue(id);
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("draw_texture_pro_raw"u8), (state, self) => {
+                int id = (int)state.GetArgumentAsIntegerAt(0);
+                int srcX = (int)state.GetArgumentAsIntegerAt(1);
+                int srcY = (int)state.GetArgumentAsIntegerAt(2);
+                int srcW = (int)state.GetArgumentAsIntegerAt(3);
+                int srcH = (int)state.GetArgumentAsIntegerAt(4);
+                int dstX = (int)state.GetArgumentAsIntegerAt(5);
+                int dstY = (int)state.GetArgumentAsIntegerAt(6);
+                int dstW = (int)state.GetArgumentAsIntegerAt(7);
+                int dstH = (int)state.GetArgumentAsIntegerAt(8);
+                byte r = (byte)state.GetArgumentAsIntegerAt(9);
+                byte g = (byte)state.GetArgumentAsIntegerAt(10);
+                byte b = (byte)state.GetArgumentAsIntegerAt(11);
+                byte a = (byte)state.GetArgumentAsIntegerAt(12);
+
+                if (_textures.TryGetValue(id, out var tex)) {
+                    Rectangle srcRect = new Rectangle(srcX, srcY, srcW, srcH);
+                    Rectangle dstRect = new Rectangle(dstX, dstY, dstW, dstH);
+                    Vector2 origin = new Vector2(0, 0);
+                    Raylib.DrawTexturePro(tex, srcRect, dstRect, origin, 0.0f, new Color(r, g, b, a));
+                }
+                return MRubyValue.Nil;
+            });
+
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("texture_width_raw"u8), (state, self) => {
+                int id = (int)state.GetArgumentAsIntegerAt(0);
+                if (_textures.TryGetValue(id, out var tex)) return new MRubyValue(tex.Width);
+                return new MRubyValue(0);
+            });
+            mrb.DefineClassMethod(raylibMod, mrb.Intern("texture_height_raw"u8), (state, self) => {
+                int id = (int)state.GetArgumentAsIntegerAt(0);
+                if (_textures.TryGetValue(id, out var tex)) return new MRubyValue(tex.Height);
+                return new MRubyValue(0);
+            });
+
             // ruby側でユーティリティメソッドを定義
             string rbHelpers = @"
 module Raylib
@@ -195,6 +248,7 @@ module Raylib
   KEY_ENTER = 257
   
   RAYWHITE = [245, 245, 245, 255]
+  WHITE = [255, 255, 255, 255]
   BLACK = [0, 0, 0, 255]
   DARKGRAY = [80, 80, 80, 255]
   LIGHTGRAY = [200, 200, 200, 255]
@@ -228,6 +282,27 @@ module Raylib
 
   def self.draw_triangle(v1x, v1y, v2x, v2y, v3x, v3y, color)
     draw_triangle_raw(v1x, v1y, v2x, v2y, v3x, v3y, color[0], color[1], color[2], color[3])
+  end
+
+  class Texture
+    attr_reader :id, :width, :height
+    def initialize(path)
+      @id = Raylib.load_texture_raw(path)
+      @width = Raylib.texture_width_raw(@id)
+      @height = Raylib.texture_height_raw(@id)
+    end
+    
+    def draw_pro(src_x, src_y, src_w, src_h, dst_x, dst_y, dst_w, dst_h, color = Raylib::RAYWHITE)
+      Raylib.draw_texture_pro_raw(@id, src_x, src_y, src_w, src_h, dst_x, dst_y, dst_w, dst_h, color[0], color[1], color[2], color[3])
+    end
+
+    def draw(x, y, color = Raylib::RAYWHITE)
+      draw_pro(0, 0, @width, @height, x, y, @width, @height, color)
+    end
+    
+    def draw_resized(x, y, w, h, color = Raylib::RAYWHITE)
+      draw_pro(0, 0, @width, @height, x, y, w, h, color)
+    end
   end
 end
 ";
